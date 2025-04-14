@@ -1,0 +1,33 @@
+<body>
+  <h2>Chat</h2>
+  <div id="messages"></div>
+  <input id="msgInput" placeholder="Nachricht...">
+  <button onclick="sendMessage()">Senden</button>
+
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+    const db = firebase.firestore();
+
+    function sendMessage() {
+      const text = document.getElementById("msgInput").value;
+      db.collection("messages").add({
+        text,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      msgInput.value = "";
+    }
+
+    db.collection("messages").orderBy("timestamp")
+      .onSnapshot(snapshot => {
+        const chat = document.getElementById("messages");
+        chat.innerHTML = "";
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const msg = document.createElement("div");
+          msg.textContent = data.text;
+          chat.appendChild(msg);
+        });
+      });
+  </script>
+</body>
