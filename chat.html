@@ -1,18 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>ChatApp</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #eef2f3; }
+    h2 { color: #333; }
+    #messages { background: #fff; border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; margin-bottom: 10px; }
+    input, button { padding: 10px; margin: 5px; font-size: 16px; }
+    button { background: #2196F3; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0b7dda; }
+    #profileSection { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    img { border-radius: 50%; margin-top: 10px; }
+  </style>
+</head>
 <body>
-  <h2>Chat</h2>
+  <h2>🟢 ChatApp</h2>
+
+  <div id="profileSection">
+    <h3>Dein Profil</h3>
+    <input type="file" id="profilePic" accept="image/*"><br>
+    <input type="text" id="statusMsg" placeholder="Dein Status"><br>
+    <button onclick="updateProfile()">Profil aktualisieren</button><br>
+    <img id="myPic" width="100"><br>
+    <p id="myStatus">Status: -</p>
+  </div>
+
   <div id="messages"></div>
-  <input id="msgInput" placeholder="Nachricht...">
+  <input id="msgInput" placeholder="Nachricht schreiben...">
   <button onclick="sendMessage()">Senden</button>
 
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js"></script>
   <script src="firebase-config.js"></script>
+
   <script>
+    const auth = firebase.auth();
     const db = firebase.firestore();
+    const storage = firebase.storage();
+    let currentUser;
+
+    auth.onAuthStateChanged(async user => {
+      if (!user) return window.location.href = "index.html";
+      currentUser = user;
+      const doc = await db.collection("users").doc(user.uid).get();
+      if (doc.exists) {
+        document.getElementById("myStatus").textContent = "Status: " + doc.data().status;
+        if (doc.data().profilePic)
+          document.getElementById("myPic").src = doc.data().profilePic;
+      }
+    });
 
     function sendMessage() {
       const text = document.getElementById("msgInput").value;
+      if (text.trim() === "") return;
       db.collection("messages").add({
-        text,
+        text: text,
+        uid: currentUser.uid,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
       msgInput.value = "";
@@ -28,6 +74,29 @@
           msg.textContent = data.text;
           chat.appendChild(msg);
         });
+        chat.scrollTop = chat.scrollHeight;
       });
+
+    async function updateProfile() {
+      const file = document.getElementById('profilePic').files[0];
+      const status = document.getElementById('statusMsg').value;
+      let url = null;
+
+      if (file) {
+        const ref = storage.ref('profilePics/' + currentUser.uid);
+        await ref.put(file);
+        url = await ref.getDownloadURL();
+      }
+
+      await db.collection("users").doc(currentUser.uid).set({
+        status: status,
+        profilePic: url
+      });
+
+      alert("Profil gespeichert!");
+      document.getElementById("myStatus").textContent = "Status: " + status;
+      if (url) document.getElementById("myPic").src = url;
+    }
   </script>
 </body>
+</html>
